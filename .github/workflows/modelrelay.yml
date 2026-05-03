@@ -6,8 +6,8 @@ on:
   workflow_dispatch:
     inputs:
       variants:
-        description: 'Variants to build (comma-separated: stable,beta,pr-48,pr-50,pr-48-50)'
-        default: 'stable,beta,pr-48,pr-50,pr-48-50'
+        description: 'Variants to build (comma-separated: stable,beta,pr-48,pr-50)'
+        default: 'stable,beta,pr-48,pr-50'
         required: false
       force_rebuild:
         description: 'Force rebuild even if tag already exists'
@@ -54,7 +54,7 @@ jobs:
       - name: Check if should build
         id: check
         run: |
-          variants="${{ inputs.variants || 'stable,beta,pr-48,pr-50,pr-48-50' }}"
+          variants="${{ inputs.variants || 'stable,beta,pr-48,pr-50' }}"
           echo "$variants" | grep -q "stable" || { echo "skip=true" >> $GITHUB_OUTPUT; exit 0; }
           status=$(curl -s -o /dev/null -w "%{http_code}" \
             "https://hub.docker.com/v2/repositories/$IMAGE/tags/${{ needs.versions.outputs.stable }}")
@@ -102,7 +102,7 @@ jobs:
       - name: Check if should build
         id: check
         run: |
-          variants="${{ inputs.variants || 'stable,beta,pr-48,pr-50,pr-48-50' }}"
+          variants="${{ inputs.variants || 'stable,beta,pr-48,pr-50' }}"
           echo "$variants" | grep -q "beta" || { echo "skip=true" >> $GITHUB_OUTPUT; exit 0; }
           status=$(curl -s -o /dev/null -w "%{http_code}" \
             "https://hub.docker.com/v2/repositories/$IMAGE/tags/${{ needs.versions.outputs.beta }}")
@@ -151,13 +151,11 @@ jobs:
             prs: "48"
           - tag: pr-50
             prs: "50"
-          - tag: pr-48-50
-            prs: "48 50"
     steps:
       - name: Check if should build
         id: check
         run: |
-          variants="${{ inputs.variants || 'stable,beta,pr-48,pr-50,pr-48-50' }}"
+          variants="${{ inputs.variants || 'stable,beta,pr-48,pr-50' }}"
           echo "$variants" | grep -q "${{ matrix.tag }}" \
             && echo "skip=false" >> $GITHUB_OUTPUT \
             || echo "skip=true"  >> $GITHUB_OUTPUT
