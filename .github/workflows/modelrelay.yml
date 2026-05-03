@@ -1,0 +1,214 @@
+name: Build ModelRelay
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      variants:
+        description: 'Variants to build (comma-separated: stable,beta,pr-48,pr-50,pr-48-50)'
+        default: 'stable,beta,pr-48,pr-50,pr-48-50'
+        required: false
+      force_rebuild:
+        description: 'Force rebuild even if tag already exists'
+        type: boolean
+        default: false
+
+env:
+  IMAGE: sharmarahul0810/modelrelay
+  UPSTREAM: ellipticmarketing/modelrelay
+
+jobs:
+  # ────────────────────────────────────────────────
+  # Resolve latest stable + beta release versions
+  # ────────────────────────────────────────────────
+  versions:
+    runs-on: ubuntu-latest
+    outputs:
+      stable: ${{ steps.get.outputs.stable }}
+      beta:   ${{ steps.get.outputs.beta }}
+      has_beta: ${{ steps.get.outputs.has_beta }}
+    steps:
+      - id: get
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          releases=$(gh api repos/$UPSTREAM/releases --paginate)
+          stable=$(echo "$releases" | jq -rs '[.[] | select(.prerelease == false)] | first | .tag_name')
+          beta=$(echo "$releases"   | jq -rs '[.[] | select(.prerelease == true)]  | first | .tag_name // ""')
+          echo "stable=$stable"      >> $GITHUB_OUTPUT
+          echo "beta=$beta"          >> $GITHUB_OUTPUT
+          echo "has_beta=$( [[ -n "$beta" ]] && echo true || echo false )" >> $GITHUB_OUTPUT
+          echo "Stable: $stable | Beta: $beta"
+
+  # ────────────────────────────────────────────────
+  # Stable release image
+  # Tags: latest, v1.16.0
+  # ────────────────────────────────────────────────
+  build-stable:
+    needs: versions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check if should build
+        id: check
+        run: |
+          variants="${{ inputs.variants || 'stable,beta,pr-48,pr-50,pr-48-50' }}"
+          echo "$variants" | grep -q "stable" || { echo "skip=true" >> $GITHUB_OUTPUT; exit 0; }
+          status=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://hub.docker.com/v2/repositories/$IMAGE/tags/${{ needs.versions.outputs.stable }}")
+          if [[ "$status" == "200" && "${{ inputs.force_rebuild }}" != "true" ]]; then
+            echo "Tag ${{ needs.versions.outputs.stable }} exists — skipping"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - uses: docker/setup-qemu-action@v3
+        if: steps.check.outputs.skip != 'true'
+      - uses: docker/setup-buildx-action@v3
+        if: steps.check.outputs.skip != 'true'
+      - uses: docker/login-action@v3
+        if: steps.check.outputs.skip != 'true'
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        if: steps.check.outputs.skip != 'true'
+        with:
+          context: images/modelrelay
+          file: images/modelrelay/Dockerfile.npm
+          build-args: VERSION=${{ needs.versions.outputs.stable }}
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ needs.versions.outputs.stable }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ────────────────────────────────────────────────
+  # Beta / pre-release image
+  # Tags: beta, v1.17.0-beta.1
+  # ────────────────────────────────────────────────
+  build-beta:
+    needs: versions
+    if: needs.versions.outputs.has_beta == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check if should build
+        id: check
+        run: |
+          variants="${{ inputs.variants || 'stable,beta,pr-48,pr-50,pr-48-50' }}"
+          echo "$variants" | grep -q "beta" || { echo "skip=true" >> $GITHUB_OUTPUT; exit 0; }
+          status=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://hub.docker.com/v2/repositories/$IMAGE/tags/${{ needs.versions.outputs.beta }}")
+          if [[ "$status" == "200" && "${{ inputs.force_rebuild }}" != "true" ]]; then
+            echo "Tag ${{ needs.versions.outputs.beta }} exists — skipping"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - uses: docker/setup-qemu-action@v3
+        if: steps.check.outputs.skip != 'true'
+      - uses: docker/setup-buildx-action@v3
+        if: steps.check.outputs.skip != 'true'
+      - uses: docker/login-action@v3
+        if: steps.check.outputs.skip != 'true'
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        if: steps.check.outputs.skip != 'true'
+        with:
+          context: images/modelrelay
+          file: images/modelrelay/Dockerfile.npm
+          build-args: VERSION=${{ needs.versions.outputs.beta }}
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ${{ env.IMAGE }}:beta
+            ${{ env.IMAGE }}:${{ needs.versions.outputs.beta }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ────────────────────────────────────────────────
+  # PR builds — cherry-picks unmerged PRs onto main
+  # Tags: pr-48, pr-50, pr-48-50
+  # Add new PRs by extending the matrix below
+  # ────────────────────────────────────────────────
+  build-prs:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - tag: pr-48
+            prs: "48"
+          - tag: pr-50
+            prs: "50"
+          - tag: pr-48-50
+            prs: "48 50"
+    steps:
+      - name: Check if should build
+        id: check
+        run: |
+          variants="${{ inputs.variants || 'stable,beta,pr-48,pr-50,pr-48-50' }}"
+          echo "$variants" | grep -q "${{ matrix.tag }}" \
+            && echo "skip=false" >> $GITHUB_OUTPUT \
+            || echo "skip=true"  >> $GITHUB_OUTPUT
+
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.skip != 'true'
+        with:
+          path: workflow-repo
+
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.skip != 'true'
+        with:
+          repository: ${{ env.UPSTREAM }}
+          path: upstream
+
+      - name: Apply PRs (${{ matrix.prs }})
+        if: steps.check.outputs.skip != 'true'
+        working-directory: upstream
+        run: |
+          git config user.email "actions@github.com"
+          git config user.name  "GitHub Actions"
+          for pr in ${{ matrix.prs }}; do
+            echo "==> Applying PR #$pr"
+            git fetch origin pull/${pr}/head:pr-${pr}
+            git merge --no-edit pr-${pr} || {
+              echo "Merge failed, attempting cherry-pick"
+              git merge --abort 2>/dev/null || true
+              git cherry-pick FETCH_HEAD || {
+                git cherry-pick --abort 2>/dev/null || true
+                echo "::error::Could not apply PR #${pr} — resolve conflicts manually"
+                exit 1
+              }
+            }
+          done
+
+      - uses: docker/setup-qemu-action@v3
+        if: steps.check.outputs.skip != 'true'
+      - uses: docker/setup-buildx-action@v3
+        if: steps.check.outputs.skip != 'true'
+      - uses: docker/login-action@v3
+        if: steps.check.outputs.skip != 'true'
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        if: steps.check.outputs.skip != 'true'
+        with:
+          context: upstream
+          file: workflow-repo/images/modelrelay/Dockerfile.src
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ env.IMAGE }}:${{ matrix.tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

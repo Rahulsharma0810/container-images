@@ -1,0 +1,11 @@
+# PR/source builds — builds from local source (used after cherry-picking PRs)
+FROM node:24-alpine
+RUN apk add --no-cache ca-certificates
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --omit=dev
+COPY . .
+USER node
+EXPOSE 7352
+ENTRYPOINT ["node", "bin/modelrelay.js"]
+CMD ["start"]

@@ -1,0 +1,9 @@
+# Stable/beta builds — installs published npm package
+FROM node:24-alpine
+ARG VERSION=latest
+RUN apk add --no-cache ca-certificates
+RUN npm install -g modelrelay@${VERSION}
+WORKDIR /app
+EXPOSE 7352
+ENTRYPOINT ["modelrelay"]
+CMD ["start"]
