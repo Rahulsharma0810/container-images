@@ -30,7 +30,7 @@ ENV NODE_ENV=production
 # Copy the full monorepo with built artifacts
 # Adjust the path below to match the actual den-api output dir
 COPY --from=builder /app ./
-RUN pnpm install --prod --frozen-lockfile --ignore-scripts
+RUN find . -name "node_modules" -maxdepth 3 -prune -exec rm -rf {} + 2>/dev/null; CI=true pnpm install --prod --frozen-lockfile --ignore-scripts
 
 # API port — adjust if needed
 EXPOSE 8790
