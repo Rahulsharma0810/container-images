@@ -12,8 +12,9 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
 # Copy workspace package manifests only (cache layer)
 COPY packages/ packages/
+COPY ee/ ee/
 COPY patches/ patches/
-RUN find packages -mindepth 2 -name "package.json" | head -50
+RUN find packages ee -mindepth 2 -name "package.json" | head -50
 RUN pnpm install --frozen-lockfile
 
 # ---- build ----
