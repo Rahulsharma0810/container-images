@@ -16,6 +16,7 @@ on:
 
 env:
   IMAGE: sharmarahul0810/openwork
+  GHCR_IMAGE: ghcr.io/rahulsharma0810/openwork
   UPSTREAM: different-ai/openwork
 
 jobs:
@@ -30,7 +31,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          releases=$(gh api repos/$UPSTREAM/releases --paginate)
+          releases=$(gh api repos/$UPSTREAM/releases --paginate --jq '.[]')
           stable=$(echo "$releases" | jq -rs '[.[] | select(.prerelease == false)] | first | .tag_name')
           beta=$(echo "$releases"   | jq -rs '[.[] | select(.prerelease == true)]  | first | .tag_name // ""')
           echo "stable=$stable"   >> $GITHUB_OUTPUT
@@ -41,6 +42,9 @@ jobs:
   build-stable:
     needs: versions
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
 
@@ -73,6 +77,12 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - uses: docker/login-action@v3
+        if: steps.check.outputs.skip != 'true'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - uses: docker/build-push-action@v6
         if: steps.check.outputs.skip != 'true'
         with:
@@ -83,6 +93,8 @@ jobs:
           tags: |
             ${{ env.IMAGE }}:latest
             ${{ env.IMAGE }}:${{ needs.versions.outputs.stable }}
+            ${{ env.GHCR_IMAGE }}:latest
+            ${{ env.GHCR_IMAGE }}:${{ needs.versions.outputs.stable }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -90,6 +102,9 @@ jobs:
     needs: versions
     if: needs.versions.outputs.has_beta == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
 
@@ -122,6 +137,12 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - uses: docker/login-action@v3
+        if: steps.check.outputs.skip != 'true'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - uses: docker/build-push-action@v6
         if: steps.check.outputs.skip != 'true'
         with:
@@ -132,5 +153,7 @@ jobs:
           tags: |
             ${{ env.IMAGE }}:beta
             ${{ env.IMAGE }}:${{ needs.versions.outputs.beta }}
+            ${{ env.GHCR_IMAGE }}:beta
+            ${{ env.GHCR_IMAGE }}:${{ needs.versions.outputs.beta }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
