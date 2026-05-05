@@ -13,6 +13,10 @@ on:
         description: 'Force rebuild even if tag already exists'
         type: boolean
         default: false
+      pinned_version:
+        description: 'Pin npm package version (e.g. 0.1.7). Leave empty to use latest upstream.'
+        required: false
+        default: ''
 
 env:
   IMAGE: sharmarahul0810/mcp-superassistant
@@ -35,6 +39,12 @@ jobs:
           releases=$(gh api repos/$UPSTREAM/releases --paginate --jq '.[]')
           stable=$(echo "$releases" | jq -rs '[.[] | select(.prerelease == false)] | first | .tag_name')
           beta=$(echo "$releases"   | jq -rs '[.[] | select(.prerelease == true)]  | first | .tag_name // ""')
+
+          # Override with pinned version if provided
+          if [[ -n "${{ inputs.pinned_version }}" ]]; then
+            stable="${{ inputs.pinned_version }}"
+            beta=""
+          fi
 
           # Strip leading 'v' for npm version
           stable_npm="${stable#v}"
