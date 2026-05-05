@@ -2,7 +2,9 @@
 # Installs the published npm package at a pinned version
 FROM node:22-alpine
 ARG VERSION=latest
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates curl
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
 RUN npm install -g @srbhptl39/mcp-superassistant-proxy@${VERSION}
 WORKDIR /app
 VOLUME ["/app/config"]
