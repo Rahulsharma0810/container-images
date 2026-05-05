@@ -1,7 +1,7 @@
 # MCP SuperAssistant proxy server
 # Installs the published npm package at a pinned version
 FROM node:22-alpine
-ARG VERSION=latest
+ARG VERSION=0.1.7
 RUN apk add --no-cache ca-certificates curl
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/root/.local/bin:$PATH"
