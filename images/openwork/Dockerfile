@@ -8,11 +8,14 @@ RUN apk add --no-cache ca-certificates python3 make g++
 # ---- deps ----
 FROM base AS deps
 WORKDIR /app
+# Copy workspace configuration
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+# Copy all package manifests first to optimize caching (optional but recommended)
+# For now, we copy the directories to ensure all workspace members are found
 COPY packages/ packages/
 COPY ee/ ee/
+COPY apps/ apps/
 COPY patches/ patches/
-RUN find packages ee -mindepth 2 -name "package.json" | head -50
 RUN pnpm install --frozen-lockfile
 
 # ---- build ----
@@ -29,8 +32,15 @@ FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+
+# We need the full source for pnpm start to work in monorepo, 
+# but we can prune node_modules and re-install production deps.
 COPY --from=builder /app ./
-RUN find . -name "node_modules" -maxdepth 3 -prune -exec rm -rf {} + 2>/dev/null; CI=true pnpm install --prod --frozen-lockfile --ignore-scripts
+
+# Clean up dev dependencies and build cache to keep image size reasonable
+RUN rm -rf .turbo && \
+    find . -name "node_modules" -maxdepth 4 -type d -exec rm -rf {} + && \
+    CI=true pnpm install --prod --frozen-lockfile --ignore-scripts
 
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

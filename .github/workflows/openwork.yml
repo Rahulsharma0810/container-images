@@ -68,6 +68,10 @@ jobs:
           ref: ${{ needs.versions.outputs.stable }}
           path: upstream
 
+      - name: Prepare build context
+        if: steps.check.outputs.skip != 'true'
+        run: cp images/openwork/entrypoint.sh upstream/
+
       - uses: docker/setup-qemu-action@v3
         if: steps.check.outputs.skip != 'true'
       - uses: docker/setup-buildx-action@v3
@@ -127,6 +131,10 @@ jobs:
           repository: ${{ env.UPSTREAM }}
           ref: ${{ needs.versions.outputs.beta }}
           path: upstream
+
+      - name: Prepare build context
+        if: steps.check.outputs.skip != 'true'
+        run: cp images/openwork/entrypoint.sh upstream/
 
       - uses: docker/setup-qemu-action@v3
         if: steps.check.outputs.skip != 'true'
