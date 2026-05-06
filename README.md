@@ -29,18 +29,6 @@ volumes:
   modelrelay_config:
 ```
 
-### OpenWork — `sharmarahul0810/openwork`
-
-Source: [different-ai/openwork](https://github.com/different-ai/openwork)
-
-| Tag | Description |
-|-----|-------------|
-| `latest` | Latest stable release |
-| `v0.13.3` | Pinned stable version |
-| `beta` | Latest pre-release |
-
-> **Note:** OpenWork has no upstream Dockerfile. The `images/openwork/Dockerfile` may need adjusting for your deployment target (den-api vs den-web vs both).
-
 ### MCP SuperAssistant — `sharmarahul0810/mcp-superassistant`
 
 Source: [srbhptl39/MCP-SuperAssistant](https://github.com/srbhptl39/MCP-SuperAssistant)
