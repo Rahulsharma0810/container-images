@@ -2,10 +2,12 @@
 set -eu
 
 # Start kimaki in background if already configured (has DB)
+# Use a dedicated opencode config dir to avoid conflicts with openchamber's opencode
 KIMAKI_DIR="${HOME}/.kimaki"
 if [ -d "${KIMAKI_DIR}" ] && [ "$(ls -A "${KIMAKI_DIR}" 2>/dev/null)" ]; then
   echo "[kimaki-entrypoint] starting kimaki..."
-  kimaki --data-dir "${KIMAKI_DIR}" &
+  OPENCODE_CONFIG_DIR="${HOME}/.config/opencode-kimaki" \
+    kimaki --data-dir "${KIMAKI_DIR}" &
 else
   echo "[kimaki-entrypoint] kimaki not configured, skipping (run setup manually)"
 fi
@@ -15,4 +17,3 @@ rm -f "${HOME}/.config/openchamber/run/"*.pid 2>/dev/null || true
 
 # Hand off to openchamber
 exec sh /home/openchamber/openchamber-entrypoint.sh "$@"
-
