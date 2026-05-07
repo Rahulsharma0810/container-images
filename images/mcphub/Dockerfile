@@ -1,6 +1,6 @@
 FROM docker.io/samanhappy/mcphub:latest
 
-RUN apk add --no-cache curl tar && \
+RUN apt-get update && apt-get install -y --no-install-recommends curl tar && \
     ARCH=$(uname -m) && \
     if [ "$ARCH" = "aarch64" ]; then JIRA_ARCH="arm64"; else JIRA_ARCH="x86_64"; fi && \
     JIRA_VERSION=$(curl -s https://api.github.com/repos/ankitpokhrel/jira-cli/releases/latest \
@@ -10,4 +10,4 @@ RUN apk add --no-cache curl tar && \
     mv /tmp/jira_${JIRA_VERSION}_linux_${JIRA_ARCH}/bin/jira /usr/local/bin/jira && \
     chmod +x /usr/local/bin/jira && \
     rm -rf /tmp/jira_* && \
-    apk del curl tar
+    apt-get remove -y curl tar && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
