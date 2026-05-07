@@ -3,6 +3,10 @@ name: Build Kimaki
 on:
   schedule:
     - cron: '0 4 * * *'
+  push:
+    branches: [main]
+    paths:
+      - 'images/kimaki/**'
   workflow_dispatch:
     inputs:
       force_rebuild:
@@ -52,7 +56,7 @@ jobs:
         run: |
           status=$(curl -s -o /dev/null -w "%{http_code}" \
             "https://hub.docker.com/v2/repositories/$IMAGE/tags/${{ needs.versions.outputs.version }}")
-          if [[ "$status" == "200" && "${{ inputs.force_rebuild }}" != "true" ]]; then
+          if [[ "$status" == "200" && "${{ inputs.force_rebuild }}" != "true" && "${{ github.event_name }}" != "push" ]]; then
             echo "skip=true" >> $GITHUB_OUTPUT
           else
             echo "skip=false" >> $GITHUB_OUTPUT
