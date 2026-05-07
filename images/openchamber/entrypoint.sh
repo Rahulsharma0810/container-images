@@ -11,4 +11,4 @@ else
 fi
 
 # Hand off to openchamber
-exec /app/openchamber-entrypoint.sh "$@"
+exec /home/openchamber/openchamber-entrypoint.sh "$@"
