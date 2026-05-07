@@ -12,3 +12,4 @@ fi
 
 # Hand off to openchamber
 exec /home/openchamber/openchamber-entrypoint.sh "$@"
+
