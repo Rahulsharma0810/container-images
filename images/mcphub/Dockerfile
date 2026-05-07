@@ -1,6 +1,6 @@
 FROM docker.io/samanhappy/mcphub:latest
 
-ARG JIRA_CLI_VERSION=2.4.0
+ARG JIRA_CLI_VERSION=1.7.0
 
 RUN apt-get update && apt-get install -y --no-install-recommends curl && \
     ARCH=$(uname -m) && \
