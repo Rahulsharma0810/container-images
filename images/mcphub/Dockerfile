@@ -9,4 +9,5 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && \
       | tar -xz -C /tmp && \
     find /tmp -name 'jira' -type f | head -1 | xargs -I{} mv {} /usr/local/bin/jira && \
     chmod +x /usr/local/bin/jira && \
+    npm install -g @choplin/jira-cli-mcp && \
     rm -rf /tmp/jira_* /var/lib/apt/lists/*
