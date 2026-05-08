@@ -107,6 +107,7 @@ jobs:
         with:
           repository: ${{ env.UPSTREAM }}
           path: upstream
+          fetch-depth: 0
 
       - name: Apply PRs (${{ matrix.prs }})
         if: steps.check.outputs.skip != 'true'
