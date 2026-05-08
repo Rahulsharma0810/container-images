@@ -9,6 +9,10 @@ on:
       - 'images/mcphub/**'
   workflow_dispatch:
     inputs:
+      variants:
+        description: 'Variants to build (comma-separated: latest,pr-787)'
+        default: 'latest,pr-787'
+        required: false
       force_rebuild:
         description: 'Force rebuild'
         type: boolean
@@ -17,28 +21,45 @@ on:
 env:
   IMAGE: sharmarahul0810/mcphub
   GHCR_IMAGE: ghcr.io/rahulsharma0810/mcphub
+  UPSTREAM: samanhappy/mcphub
 
 jobs:
-  build:
+  # ────────────────────────────────────────────────
+  # Latest — upstream image + jira additions
+  # Tags: latest
+  # ────────────────────────────────────────────────
+  build-latest:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Check if should build
+        id: check
+        run: |
+          variants="${{ inputs.variants || 'latest,pr-787' }}"
+          echo "$variants" | grep -q "latest" || { echo "skip=true" >> $GITHUB_OUTPUT; exit 0; }
+          echo "skip=false" >> $GITHUB_OUTPUT
 
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.skip != 'true'
       - uses: docker/setup-qemu-action@v3
+        if: steps.check.outputs.skip != 'true'
       - uses: docker/setup-buildx-action@v3
+        if: steps.check.outputs.skip != 'true'
       - uses: docker/login-action@v3
+        if: steps.check.outputs.skip != 'true'
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - uses: docker/login-action@v3
+        if: steps.check.outputs.skip != 'true'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GH_PACKAGES_TOKEN }}
       - uses: docker/build-push-action@v6
+        if: steps.check.outputs.skip != 'true'
         with:
           context: images/mcphub
           file: images/mcphub/Dockerfile
@@ -50,3 +71,87 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           no-cache: ${{ github.event_name == 'schedule' || inputs.force_rebuild == 'true' }}
+
+  # ────────────────────────────────────────────────
+  # PR builds — cherry-picks unmerged PRs onto main
+  # Tags: pr-787
+  # Add new PRs by extending the matrix below
+  # ────────────────────────────────────────────────
+  build-prs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - tag: pr-787
+            prs: "787"
+    steps:
+      - name: Check if should build
+        id: check
+        run: |
+          variants="${{ inputs.variants || 'latest,pr-787' }}"
+          echo "$variants" | grep -q "${{ matrix.tag }}" \
+            && echo "skip=false" >> $GITHUB_OUTPUT \
+            || echo "skip=true"  >> $GITHUB_OUTPUT
+
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.skip != 'true'
+        with:
+          path: workflow-repo
+
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.skip != 'true'
+        with:
+          repository: ${{ env.UPSTREAM }}
+          path: upstream
+
+      - name: Apply PRs (${{ matrix.prs }})
+        if: steps.check.outputs.skip != 'true'
+        working-directory: upstream
+        run: |
+          git config user.email "actions@github.com"
+          git config user.name  "GitHub Actions"
+          for pr in ${{ matrix.prs }}; do
+            echo "==> Applying PR #$pr"
+            git fetch origin pull/${pr}/head:pr-${pr}
+            git merge --no-edit pr-${pr} || {
+              echo "Merge failed, attempting cherry-pick"
+              git merge --abort 2>/dev/null || true
+              git cherry-pick FETCH_HEAD || {
+                git cherry-pick --abort 2>/dev/null || true
+                echo "::error::Could not apply PR #${pr} — resolve conflicts manually"
+                exit 1
+              }
+            }
+          done
+
+      - uses: docker/setup-qemu-action@v3
+        if: steps.check.outputs.skip != 'true'
+      - uses: docker/setup-buildx-action@v3
+        if: steps.check.outputs.skip != 'true'
+      - uses: docker/login-action@v3
+        if: steps.check.outputs.skip != 'true'
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - uses: docker/login-action@v3
+        if: steps.check.outputs.skip != 'true'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GH_PACKAGES_TOKEN }}
+      - uses: docker/build-push-action@v6
+        if: steps.check.outputs.skip != 'true'
+        with:
+          context: upstream
+          file: workflow-repo/images/mcphub/Dockerfile.src
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ${{ env.IMAGE }}:${{ matrix.tag }}
+            ${{ env.GHCR_IMAGE }}:${{ matrix.tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
