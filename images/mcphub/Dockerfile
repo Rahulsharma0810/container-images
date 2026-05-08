@@ -1,13 +1,49 @@
-FROM docker.io/samanhappy/mcphub:latest
+FROM python:3.13-slim-bookworm
 
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+RUN apt-get update && apt-get install -y curl gnupg git build-essential \
+  && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+  && apt-get install -y nodejs \
+  && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN npm install -g pnpm
+
+ENV PNPM_HOME=/usr/local/share/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+RUN mkdir -p $PNPM_HOME && \
+  pnpm add -g @amap/amap-maps-mcp-server @playwright/mcp@latest tavily-mcp@latest @modelcontextprotocol/server-github @modelcontextprotocol/server-slack
+
+RUN uv tool install mcp-server-fetch
+
+ARG MCPHUB_REPO=https://github.com/Rahulsharma0810/mcphub.git
+ARG MCPHUB_SHA=2e80601065f1443e9968c74d9f22ed02b73d13be
+
+RUN git clone ${MCPHUB_REPO} /app && \
+    cd /app && git checkout ${MCPHUB_SHA}
+
+WORKDIR /app
+
+RUN pnpm install
+
+RUN curl -s -f --connect-timeout 10 https://mcpm.sh/api/servers.json -o servers.json || echo "Failed to download servers.json, using bundled version"
+
+RUN pnpm frontend:build && pnpm build
+
+RUN cp /app/entrypoint.sh /usr/local/bin/entrypoint.sh && chmod +x /usr/local/bin/entrypoint.sh
+
+# Add jira-cli + jira-cli-mcp
 ARG JIRA_CLI_VERSION=1.7.0
-
-RUN apt-get update && apt-get install -y --no-install-recommends curl && \
-    ARCH=$(uname -m) && \
+RUN ARCH=$(uname -m) && \
     if [ "$ARCH" = "aarch64" ]; then JIRA_ARCH="arm64"; else JIRA_ARCH="x86_64"; fi && \
     curl -fsSL "https://github.com/ankitpokhrel/jira-cli/releases/download/v${JIRA_CLI_VERSION}/jira_${JIRA_CLI_VERSION}_linux_${JIRA_ARCH}.tar.gz" \
       | tar -xz -C /tmp && \
     find /tmp -name 'jira' -type f | head -1 | xargs -I{} mv {} /usr/local/bin/jira && \
     chmod +x /usr/local/bin/jira && \
     npm install -g @choplin/jira-cli-mcp && \
-    rm -rf /tmp/jira_* /var/lib/apt/lists/*
+    rm -rf /tmp/jira_*
+
+EXPOSE 3000
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["pnpm", "start"]
