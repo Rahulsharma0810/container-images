@@ -2,7 +2,7 @@ name: Build MCPHub
 
 on:
   schedule:
-    - cron: '0 4 * * *'
+    - cron: '0 */6 * * *'  # every 6 hours
   push:
     branches: [main]
     paths:

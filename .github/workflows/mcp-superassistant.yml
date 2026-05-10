@@ -2,7 +2,11 @@ name: Build MCP SuperAssistant
 
 on:
   schedule:
-    - cron: '0 4 * * *'
+    - cron: '0 */6 * * *'  # every 6 hours
+  push:
+    branches: [main]
+    paths:
+      - 'images/mcp-superassistant/**'
   workflow_dispatch:
     inputs:
       variants:
@@ -13,10 +17,6 @@ on:
         description: 'Force rebuild even if tag already exists'
         type: boolean
         default: false
-      pinned_version:
-        description: 'Pin npm package version (e.g. 0.1.7). Leave empty to use latest upstream.'
-        required: false
-        default: ''
 
 env:
   IMAGE: sharmarahul0810/mcp-superassistant
@@ -39,12 +39,6 @@ jobs:
           releases=$(gh api repos/$UPSTREAM/releases --paginate --jq '.[]')
           stable=$(echo "$releases" | jq -rs '[.[] | select(.prerelease == false)] | first | .tag_name')
           beta=$(echo "$releases"   | jq -rs '[.[] | select(.prerelease == true)]  | first | .tag_name // ""')
-
-          # Override with pinned version if provided
-          if [[ -n "${{ inputs.pinned_version }}" ]]; then
-            stable="${{ inputs.pinned_version }}"
-            beta=""
-          fi
 
           # Strip leading 'v' for npm version
           stable_npm="${stable#v}"
@@ -73,7 +67,7 @@ jobs:
           echo "$variants" | grep -q "stable" || { echo "skip=true" >> $GITHUB_OUTPUT; exit 0; }
           status=$(curl -s -o /dev/null -w "%{http_code}" \
             "https://hub.docker.com/v2/repositories/$IMAGE/tags/${{ needs.versions.outputs.stable }}")
-          if [[ "$status" == "200" && "${{ inputs.force_rebuild }}" != "true" ]]; then
+          if [[ "$status" == "200" && "${{ inputs.force_rebuild }}" != "true" && "${{ github.event_name }}" != "push" ]]; then
             echo "skip=true" >> $GITHUB_OUTPUT
           else
             echo "skip=false" >> $GITHUB_OUTPUT
@@ -127,7 +121,7 @@ jobs:
           echo "$variants" | grep -q "beta" || { echo "skip=true" >> $GITHUB_OUTPUT; exit 0; }
           status=$(curl -s -o /dev/null -w "%{http_code}" \
             "https://hub.docker.com/v2/repositories/$IMAGE/tags/${{ needs.versions.outputs.beta }}")
-          if [[ "$status" == "200" && "${{ inputs.force_rebuild }}" != "true" ]]; then
+          if [[ "$status" == "200" && "${{ inputs.force_rebuild }}" != "true" && "${{ github.event_name }}" != "push" ]]; then
             echo "skip=true" >> $GITHUB_OUTPUT
           else
             echo "skip=false" >> $GITHUB_OUTPUT
