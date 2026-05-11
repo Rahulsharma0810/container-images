@@ -20,13 +20,13 @@ RUN YQ_VERSION=$(curl -fsSL https://api.github.com/repos/mikefarah/yq/releases/l
     curl -fsSL "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_linux_${TARGETARCH}" -o /usr/local/bin/yq && \
     chmod +x /usr/local/bin/yq
 
-# Install ruff + uv (latest, musl static binaries)
-RUN case "${TARGETARCH}" in \
-        amd64) RUST_ARCH="x86_64-unknown-linux-musl" ;; \
-        arm64) RUST_ARCH="aarch64-unknown-linux-musl" ;; \
-    esac && \
+# Install ruff (latest)
+RUN RUST_ARCH=$([ "${TARGETARCH}" = "arm64" ] && echo "aarch64-unknown-linux-musl" || echo "x86_64-unknown-linux-musl") && \
     RUFF_VERSION=$(curl -fsSL https://api.github.com/repos/astral-sh/ruff/releases/latest | grep '"tag_name"' | cut -d'"' -f4 | sed 's/^v//') && \
-    curl -fsSL "https://github.com/astral-sh/ruff/releases/download/${RUFF_VERSION}/ruff-${RUST_ARCH}.tar.gz" | tar -xz -C /usr/local/bin ruff && \
+    curl -fsSL "https://github.com/astral-sh/ruff/releases/download/${RUFF_VERSION}/ruff-${RUST_ARCH}.tar.gz" | tar -xz -C /usr/local/bin
+
+# Install uv (latest)
+RUN RUST_ARCH=$([ "${TARGETARCH}" = "arm64" ] && echo "aarch64-unknown-linux-musl" || echo "x86_64-unknown-linux-musl") && \
     UV_VERSION=$(curl -fsSL https://api.github.com/repos/astral-sh/uv/releases/latest | grep '"tag_name"' | cut -d'"' -f4 | sed 's/^v//') && \
     curl -fsSL "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-${RUST_ARCH}.tar.gz" | tar -xz -C /tmp && \
     mv /tmp/uv-${RUST_ARCH}/uv /usr/local/bin/uv && \
