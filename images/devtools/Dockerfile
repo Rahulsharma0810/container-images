@@ -24,7 +24,8 @@ RUN curl -fsSL "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}
 
 # Install ruff
 RUN RUST_ARCH=$([ "${TARGETARCH}" = "arm64" ] && echo "aarch64-unknown-linux-musl" || echo "x86_64-unknown-linux-musl") && \
-    curl -fsSL "https://github.com/astral-sh/ruff/releases/download/${RUFF_VERSION}/ruff-${RUST_ARCH}.tar.gz" | tar -xz -C /usr/local/bin
+    curl -fsSL "https://github.com/astral-sh/ruff/releases/download/${RUFF_VERSION}/ruff-${RUST_ARCH}.tar.gz" | tar -xz -C /tmp && \
+    mv /tmp/ruff-${RUST_ARCH}/ruff /usr/local/bin/ruff
 
 # Install uv
 RUN RUST_ARCH=$([ "${TARGETARCH}" = "arm64" ] && echo "aarch64-unknown-linux-musl" || echo "x86_64-unknown-linux-musl") && \
