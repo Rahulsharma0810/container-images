@@ -1,11 +1,19 @@
+FROM ghcr.io/rahulsharma0810/devtools:latest AS devtools
+
 FROM ghcr.io/cukingpro/openchamber:latest
 
 USER root
 
-# Install gh CLI
-RUN curl -fsSL https://github.com/cli/cli/releases/download/v2.63.2/gh_2.63.2_linux_amd64.tar.gz | tar -xz -C /usr/local && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
-ENV PATH="/usr/local/gh_2.63.2_linux_amd64/bin:${PATH}"
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl git nodejs npm python3 python3-pip jq make unzip wget \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+COPY --from=devtools /usr/local/bin/gh /usr/local/bin/gh
+COPY --from=devtools /usr/local/bin/tofu /usr/local/bin/tofu
+COPY --from=devtools /usr/local/bin/yq /usr/local/bin/yq
+COPY --from=devtools /usr/local/bin/ruff /usr/local/bin/ruff
+COPY --from=devtools /usr/local/bin/uv /usr/local/bin/uv
+COPY --from=devtools /usr/local/bin/uvx /usr/local/bin/uvx
 
 COPY --chmod=755 entrypoint.sh /home/openchamber/kimaki-entrypoint.sh
 RUN chown openchamber:openchamber /home/openchamber/kimaki-entrypoint.sh
