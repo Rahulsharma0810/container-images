@@ -14,14 +14,34 @@ env:
   GHCR_IMAGE: ghcr.io/rahulsharma0810/devtools
 
 jobs:
+  versions:
+    runs-on: ubuntu-latest
+    outputs:
+      gh: ${{ steps.get.outputs.gh }}
+      tofu: ${{ steps.get.outputs.tofu }}
+      yq: ${{ steps.get.outputs.yq }}
+      ruff: ${{ steps.get.outputs.ruff }}
+      uv: ${{ steps.get.outputs.uv }}
+    steps:
+      - id: get
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest() { gh api repos/$1/releases --jq '[.[] | select(.prerelease == false)] | first | .tag_name | ltrimstr("v")'; }
+          echo "gh=$(latest cli/cli)"           >> $GITHUB_OUTPUT
+          echo "tofu=$(latest opentofu/opentofu)" >> $GITHUB_OUTPUT
+          echo "yq=$(latest mikefarah/yq)"      >> $GITHUB_OUTPUT
+          echo "ruff=$(latest astral-sh/ruff)"  >> $GITHUB_OUTPUT
+          echo "uv=$(latest astral-sh/uv)"      >> $GITHUB_OUTPUT
+
   build:
+    needs: versions
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
       - uses: actions/checkout@v4
-
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
 
@@ -42,6 +62,12 @@ jobs:
           file: images/devtools/Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
+          build-args: |
+            GH_VERSION=${{ needs.versions.outputs.gh }}
+            TOFU_VERSION=${{ needs.versions.outputs.tofu }}
+            YQ_VERSION=${{ needs.versions.outputs.yq }}
+            RUFF_VERSION=${{ needs.versions.outputs.ruff }}
+            UV_VERSION=${{ needs.versions.outputs.uv }}
           tags: |
             ${{ env.IMAGE }}:latest
             ${{ env.GHCR_IMAGE }}:latest
