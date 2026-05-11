@@ -29,8 +29,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Get latest release tag, strip 'v' prefix if present
-          version=$(gh api repos/$UPSTREAM/releases --jq '[.[] | select(.prerelease == false)] | first | .tag_name | ltrimstr("v")')
+          # No releases on upstream — use latest commit SHA (short)
+          version=$(gh api repos/$UPSTREAM/commits --jq '.[0].sha[:7]')
           echo "version=$version" >> $GITHUB_OUTPUT
           echo "Version: $version"
 
