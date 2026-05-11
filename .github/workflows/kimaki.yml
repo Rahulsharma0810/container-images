@@ -29,7 +29,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          version=$(gh api repos/$UPSTREAM/releases --jq '[.[] | select(.prerelease == false)] | first | .tag_name | ltrimstr("v")')
+          version=$(gh api repos/$UPSTREAM/releases --jq '[.[] | select(.prerelease == false)] | first | .tag_name' | sed 's/.*@//')
           echo "version=$version" >> $GITHUB_OUTPUT
           echo "Version: $version"
 
